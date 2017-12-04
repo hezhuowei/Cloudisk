@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="./bootstrap-3.3.7/css/bootstrap.min.css">
+    <style>
+        .content {
+            margin-top: 50px;
+        }
+
+        nav {
+            z-index: 100;
+        }
+
+        .btn-floatbtngroup .btn {
+            margin-right: 5px;
+            padding: 20px 0 20px 0;
+            width: 60px;
+            height: 60px;
+            border-radius: 30px;
+
+        }
+
+        .btn-floatbtngroup {
+            padding: 0;
+            margin: 0;
+            margin-bottom: 10px;
+            border: 0;
+            position: fixed;
+            right: 0;
+            bottom: 0;
+        }
+
+        #btn-cancel {
+            display: none;
+        }
+
+        #btn-paste {
+            display: none;
+        }
+
+        .btn-floatbtngroup input {
+            display: none;
+        }
+
+        #msg-box {
+            z-index: 99;
+            margin-top: -10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container" id="app">
+    <div class="row clearfix">
+        <div class="col-md-12 column">
+            <nav class="navbar navbar-default navbar-fixed-top">
+                <div class="navbar-brand">cloudisk</div>
+                <div class="nav navbar-form navbar-right btn-floatbtngroup">
+                    <span class="btn btn-default" onclick="mkdir()">NEW</span>
+                    <span id="btn-paste" class="btn btn-default" onclick="paste()">PASTE</span>
+                    <span id="btn-cancel" class=" btn btn-default" onclick="cancel()">CANCEL</span>
+                    <span id="btn-upload" class="btn btn-default" onclick="$('#upload-input').click()">UPLOAD</span>
+                    <input id="upload-input" type="file" onchange="upload(this)">
+                </div>
+
+            </nav>
+            <div class="row clearfix content">
+                <div id="msg-box" v-html="server_message" class="col-md-12 column navbar-fixed-top">
+
+                </div>
+                <div class="col-md-12 column">
+                    <table class="table">
+                        <thead>
+                        <tr>
+                            <th>
+                                文件名
+
+                            </th>
+                            <th>
+                                大小
+                            </th>
+                            <th>
+                                更新时间
+                            </th>
+                            <th>
+                                操作
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody v-html="file_list">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="input-filename" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title" id="myModalLabel">{{modal_title}}</h4>
+                </div>
+                <div class="modal-body">
+                    {{old_filename}}
+                    </br>
+                    新文件名：<input v-model="new_filename" type="text">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" data-dismiss="modal" onclick="modal_primary()">提交更改
+                    </button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal -->
+    </div>
+</div>
+<script src="./bootstrap-3.3.7/js/jquery.min.js"></script>
+<script src="./bootstrap-3.3.7/js/bootstrap.js"></script>
+<script src="./js/vue.js"></script>
+<script>
+    const DOMAIN = 'http://127.0.0.1/';
+
+    /*文件大小单位转换*/
+    function get_size_human_readable(int_byt) {
+        if (!int_byt) return '';
+        if (int_byt < 1024) return int_byt + "byt";
+        if (int_byt < 1024000) return parseInt(int_byt / 1000) + "k";
+        if (int_byt < 1024000000) return parseInt(int_byt / 1000000) + "m";
+        if (int_byt < 1024000000000) return parseInt(int_byt / 1000000000) + "g";
+        if (int_byt < 1024000000000000) {
+            return parseInt(int_byt / 1000000000000) + "t"
+        }
+        else {
+            return "Biger than biger? "
+        }
+    }
+
+    function getFileList2html(json_file_list) {
+        var html_file_list = "";
+        for (i in json_file_list) {
+            /*时间戳字符串－＞ｉｎｔ时间戳毫秒－＞ｏｂｊ时间*/
+            var update_time = new Date(parseInt(json_file_list[i].update_time));
+            var file_size = get_size_human_readable(parseInt(json_file_list[i].size));
+            var file_name = json_file_list[i].name;
+            /*ｆｉｌｅ＿size无大小时为文件夹*/
+            var folder_logo = file_size ? "" : "<span class='glyphicon glyphicon-folder-open'></span>  ";
+            var click_file = file_size ? "download('" + file_name + "')" : ("cd('" + file_name + "')");
+            var item = "<tr>\n" +
+                "                            <td onclick=\"" + click_file + "\">\n" +
+                folder_logo +
+                file_name +
+                "                            </td>\n" +
+                "                            <td>\n" +
+                file_size +
+                "                            </td>\n" +
+                "                            <td>\n" +
+                update_time.toLocaleString() +
+                "                            </td>\n" +
+                "                            <td>\n" +
+                "                                <div class=\"dropdown\">\n" +
+                "                                    <a class=\"dropdown-toggle\" data-toggle=\"dropdown\" href=\"#\">\n" +
+                "                                    <span class=\"caret\"></span>\n" +
+                "                                    </a>\n" +
+                "                                    <ul class=\"dropdown-menu pull-right\">\n" +
+                "                                        <li><a onclick='delete_file(\"" + file_name + "\")'>删除</a></li>\n" +
+                "                                        <li><a onclick='copy_file(\"" + file_name + "\")'>复制</a></li>\n" +
+                "                                        <li><a onclick='rename_file(\"" + file_name + "\")'>重命名</a></li>\n" +
+                "                                        <li><a onclick='move_file(\"" + file_name + "\")'>移动</a></li>\n" +
+                "                                    </ul>\n" +
+                "                                </div>\n" +
+                "                            </td>\n" +
+                "                        </tr>\n";
+            html_file_list += item;
+        }
+        return html_file_list;
+    }
+
+    var vm = new Vue({
+        el: "#app",
+        data: {
+            modal_title: '',
+            server_message: '<div class="alert alert-info">none</div>',
+            file_list: '<h5>wait....</h5>',
+            old_filename: '',
+            new_filename: ''
+        }
+    });
+    var xmlhttp = new XMLHttpRequest();
+    xmlhttp.onreadystatechange = function () {
+
+        if (xmlhttp.readyState === 4 && xmlhttp.status === 200) {
+            var str_data = xmlhttp.responseText;
+            try {
+                Json_data = JSON.parse(str_data);
+            }
+            catch (e) {
+                alert(e.toString());
+            }
+            if (Json_data.file_list) {
+                vm.$data.file_list = getFileList2html(Json_data.file_list);
+            }
+            if (Json_data.server_message && Json_data.server_message.msg_type && Json_data.server_message.msg_content) {
+                var msg_type = Json_data.server_message.msg_type;
+                var msg_content = Json_data.server_message.msg_content;
+                alert_msg(msg_type, msg_content);
+            }
+
+        }
+    };
+    xmlhttp.open('POST', DOMAIN + 'getFileList.php', true);
+    xmlhttp.send();
+
+    function delete_file(file_name) {
+        xmlhttp.open('POST', DOMAIN + 'deleteFile.php', true);
+        xmlhttp.send(file_name);
+    }
+
+    function move_file(file_name) {
+        xmlhttp.open('POST', DOMAIN + 'moveFile.php', true);
+        xmlhttp.send(file_name);
+        /*需要返回目录树来确认目标位置*/
+        $('#btn-paste').show('fast');
+        $('#btn-cancel').show('fast');
+        $('#btn-upload').hide('fast');
+    }
+
+    function copy_file(file_name) {
+        xmlhttp.open('POST', DOMAIN + 'copyFile.php', true);
+        xmlhttp.send(file_name);
+        /*需要返回目录树来确认目标位置*/
+        $('#btn-paste').show('fast');
+        $('#btn-cancel').show('fast');
+        $('#btn-upload').hide('fast');
+    }
+
+    function rename_file(file_name) {
+        vm.$data.modal_title = '重命名';
+        vm.$data.old_filename = file_name;
+        vm.$data.new_filename = file_name;
+        $('#input-filename').modal('show');
+    }
+
+    function modal_primary() {
+        if (vm.$data.modal_title === '重命名') {
+            var file_name = vm.$data.old_filename;
+            var new_file_name = vm.$data.new_filename;
+            xmlhttp.open('POST', DOMAIN + 'renameFile.php', true);
+
+            xmlhttp.send('{"file_name":"' + file_name + '","new_file_name":"' + new_file_name + '"}');
+
+        }
+        if (vm.$data.modal_title === '新建文件') {
+            xmlhttp.open('POST', DOMAIN + 'mkdir.php', true);
+            xmlhttp.send(vm.$data.new_filename);
+
+        }
+
+    }
+
+    function cd(file_name) {
+        xmlhttp.open('POST', DOMAIN + 'cd.php', true);
+        xmlhttp.send(file_name);
+    }
+
+    function download(file_name) {
+        xmlhttp.open('POST', DOMAIN + 'download', true);
+        xmlhttp.send(file_name);
+    }
+
+    function alert_msg(msg_type, msg_content) {
+        vm.$data.server_message = '<div class="alert alert-' + msg_type + '">' + msg_content + '</div>';
+        $('#msg-box').animate({marginTop: '50px'}).delay(1200).animate({marginTop: '-10px'})
+    }
+
+    function paste() {
+        xmlhttp.open('POST', DOMAIN + 'paste.php', true);
+        xmlhttp.send('paste');
+    }
+
+    function cancel() {
+        $('#btn-paste').hide('fast');
+        $('#btn-cancel').hide('fast');
+        $('#btn-upload').show('fast');
+        xmlhttp.open('POST', DOMAIN + 'paste.php', true);
+        xmlhttp.send('paste_cancel');
+    }
+
+    function mkdir(dirname) {
+        vm.$data.old_filename = '输入文件夹名';
+        vm.$data.new_filename = '新建文件夹';
+        vm.$data.modal_title = '新建文件';
+        $('#input-filename').modal('show');
+    }
+
+    function upload(obj) {
+        var fd = new FormData;
+        fd.append('file', obj.files[0]);
+        xmlhttp.open('POST', DOMAIN + 'upload.php', true);
+        xmlhttp.send(fd);
+    }
+
+</script>
+</body>
+</html>

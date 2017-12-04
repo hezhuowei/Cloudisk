@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="bootstrap-3.3.7/css/bootstrap.min.css">
+    <style>
+        #logo {
+            text-align: center;
+            font-style: inherit;
+        }
+        #msg-box{
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container" id="app">
+    <div class="row clearfix">
+        <div class="col-md-12">
+            <h1 id="logo">Cloudisk</h1>
+        </div>
+        <div class="col-md-12 column">
+            <div class="form-group">
+                <label for="inputEmail" class="col-sm-12 ">Email</label>
+                <div class="col-sm-12">
+                    <input v-model="email" name="email" class="form-control" id="inputEmail" type="email"/>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="inputPassword" class="col-sm-12">Password</label>
+                <div class="col-sm-12">
+                    <input v-model="password" name="password" class="form-control" id="inputPassword" type="password"/>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-12 ">
+                    <div class="checkbox">
+                        <label><input v-model="remember" name="remember" type="checkbox"/>Remember me</label>
+                    </div>
+                </div>
+                <div class="col-sm-12">
+                    <input type="button" class="btn btn-default form-control" value="登录" onclick="login()">
+
+                </div>
+                <div class="col-sm-12">
+                    <div id="msg-box" class="alert alert-warning">{{error_msg}}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="bootstrap-3.3.7/js/jquery.min.js"></script>
+<script src="bootstrap-3.3.7/js/bootstrap.min.js"></script>
+<script src="js/vue.js"></script>
+<script>
+    const DOMAIN = 'http://127.0.0.1/';
+    var xmlhttp = new XMLHttpRequest();
+    var vm = new Vue({
+        el: "#app",
+        data: {
+            email: '',
+            password: '',
+            remember: true,
+            error_msg:''
+        }
+
+    });
+
+    function login() {
+        $('#msg-box').hide();
+        var fd=new  FormData;
+        fd.append('email',vm.$data.email);
+        fd.append('password',vm.$data.password);
+        fd.append('remember',vm.$data.remember);
+        xmlhttp.open('POST',DOMAIN+'login.php',true);
+        xmlhttp.send(fd);
+    }
+    xmlhttp.onreadystatechange=function () {
+        if (xmlhttp.readyState === 4 && xmlhttp.status === 200) {
+            var str_data = xmlhttp.responseText;
+            try {
+                Json_data = JSON.parse(str_data);
+            }
+            catch (e) {
+                alert(e.toString());
+            }
+            if(Json_data.server_message){
+                vm.$data.error_msg=Json_data.server_message.msg_content;
+                $('#msg-box').show();
+            }
+            if(Json_data.join_url){
+                window.location.href=Json_data.join_url
+            }
+
+        }
+    }
+</script>
+</body>
+</html>
